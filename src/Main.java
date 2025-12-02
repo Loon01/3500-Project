@@ -198,9 +198,9 @@ public class Main {
         String target = scanner.nextLine().trim();
         if (target.isEmpty()) target = "hours.per.week";
         
-        System.out.print("  L2 regularization (default 0): ");
+        System.out.print("  L2 regularization (default 0.01): ");
         String l2Str = scanner.nextLine().trim();
-        double l2 = l2Str.isEmpty() ? 0.0 : Double.parseDouble(l2Str);
+        double l2 = l2Str.isEmpty() ? 0.01 : Double.parseDouble(l2Str);
         
         // Prepare data 
         prepareData(target, false);
@@ -229,7 +229,7 @@ public class Main {
         System.out.println("Algorithm: " + model.getName());
         System.out.println("Train time: " + trainTime + " ms");
         System.out.println("Metric 1 - RMSE: " + String.format("%.4f", rmse));
-        System.out.println("Metric 2 - R²: " + String.format("%.4f", r2));
+        System.out.println("Metric 2 - R^2: " + String.format("%.4f", r2));
         System.out.println("Metric 3 - SLOC: " + sloc);
         
         // Store results
@@ -468,7 +468,7 @@ public class Main {
         
         System.out.println("\n" + String.format("%-25s %-15s %-15s %-15s %-10s", 
             "Algorithm", "TrainTime(ms)", "TestMetric1", "TestMetric2", "SLOC"));
-        System.out.println("=".repeat(85));
+        System.out.println("=================================================================================");
         
         for (ModelResult result : results.values()) {
             System.out.println(String.format("%-25s %-15d %-15.4f %-15.4f %-10d",

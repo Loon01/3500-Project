@@ -20,7 +20,8 @@ public class LinearRegression implements Model {
     }
     
     public LinearRegression(double l2Lambda) {
-        this.l2Lambda = l2Lambda;
+        // Ensure L2 is never 0 to prevent singular matrix
+        this.l2Lambda = Math.max(l2Lambda, 1e-6);
         this.weights = null;
         this.bias = 0.0;
     }

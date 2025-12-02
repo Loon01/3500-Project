@@ -4,7 +4,6 @@ import java.util.*;
 
 /**
  * Dataset class - holds tabular data with column names.
- * Similar to a simplified pandas DataFrame.
  * 
  * Team Members: Solomon Anagha, Geneva Regpala, Adrian Rodriguez, Hermit Singh
  */
@@ -105,8 +104,17 @@ public class Dataset {
             throw new IllegalArgumentException("Target column not found: " + targetColumn);
         }
         
-        // Get target values
-        double[] y = getColumnAsDouble(targetColumn);
+        // Get target values - try numeric first, if fails use dummy values
+        double[] y;
+        try {
+            y = getColumnAsDouble(targetColumn);
+        } catch (IllegalArgumentException e) {
+            // If not numeric, create dummy values that will be replaced later
+            y = new double[data.size()];
+            for (int i = 0; i < y.length; i++) {
+                y[i] = 0.0;
+            }
+        }
         
         // Get feature column names (all except target)
         List<String> featureNames = getColumnsExcept(targetColumn);

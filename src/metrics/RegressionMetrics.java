@@ -2,14 +2,12 @@ package metrics;
 
 /**
  * Metrics for evaluating regression models.
- * Implements RMSE and R² as required by the project.
  */
 public class RegressionMetrics {
     
     /**
      * Calculate Root Mean Squared Error (RMSE)
      * RMSE = sqrt(mean((y_true - y_pred)^2))
-     * Lower is better (0 = perfect predictions)
      */
     public static double rmse(double[] yTrue, double[] yPred) {
         if (yTrue.length != yPred.length) {
@@ -26,9 +24,9 @@ public class RegressionMetrics {
     }
     
     /**
-     * Calculate R² (R-squared, coefficient of determination)
-     * R² = 1 - (SS_res / SS_tot)
-     * Range: (-∞, 1], where 1 = perfect predictions, 0 = mean baseline
+     * Calculate R^2 (R-squared, coefficient of determination)
+     * R^2 = 1 - (SS_res / SS_tot)
+     * Range: (-infinity, 1], where 1 = perfect predictions, 0 = mean baseline
      */
     public static double r2Score(double[] yTrue, double[] yPred) {
         if (yTrue.length != yPred.length) {
