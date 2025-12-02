@@ -1,3 +1,15 @@
+################################################################################
+# PROJECT: AI Library Design Comparison (Programming Languages)
+# GROUP MEMBERS: Adrian R, Solomon A., Geneva R., Hermit S.
+# ORGN: CSUB - CMPS 3500
+# FILE: runner.py
+# DATE: 12/05/2025
+# COMPILE: python3 runner.py
+# DESCRIPTION:
+#   A python script that contains a menu that combines all files (C/C++, Java, 
+#   and Lisp) that contain the algorithms required to be ran in there respective 
+#   language
+################################################################################
 import os
 import subprocess
 import glob
@@ -25,24 +37,36 @@ def main():
             
         if choice == "2": 
             # Make sure build directory exists
-            os.makedirs("build", exist_ok=True)
+            os.makedirs("src/bin", exist_ok=True)
 
             # Find all Java files
-            java_files = glob.glob("test/test/oop-java/ml/*.java")
-            #print("Java files found: ", java_files)
+            java_files1 = glob.glob("src/**/*.java")
+            #print("Java files found: ", java_files1)
+
+            java_files2 = glob.glob("src/Main.java")
+            #print("Java files found: ", java_files2)
 
             # Error handling
-            if not java_files:
-                raise RuntimeError("No Java files found — check your path!")
+            if not java_files1:
+                raise RuntimeError("No Java files1 found — check your path!")
+
+            if not java_files2:
+                raise RuntimeError("No Java files2 found — check your path!")
 
             subprocess.run(
-                ["javac", "-encoding", "UTF-8", "-d", "build"] + java_files, 
+                ["javac", "-encoding", "UTF-8", "-d", "bin"] + java_files1, 
+                capture_output=True,
+                text=True,
+                )
+
+            subprocess.run(
+                ["javac", "-encoding", "UTF-8", "-d", "bin"] + java_files2, 
                 capture_output=True,
                 text=True,
                 )
 
             result = subprocess.run(
-                ["java", "-cp", "build", "Main"],
+                ["java", "-cp", "bin", "Main"],
                 stdin=None,     # allow keyboard input
                 stdout=None,    # show Java output directly in terminal
                 stderr=None 
@@ -67,7 +91,7 @@ def main():
         else:
             print("Invalid option.")
         
-        print("finished")
+        #print("finished")
     
 if __name__ == "__main__":
     main()
