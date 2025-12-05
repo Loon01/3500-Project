@@ -1,0 +1,9 @@
+ML Implementation Results:
+******************************
+Impl                     Algorithm           TrainTime   TestMetric1    TestMetric2    SLOC    
+ML Implementation        Linear Regressio... 0.080       s0.0000         1.0000         156     
+ML Implementation        Linear Regressio... 0.079       s0.0000         1.0000         156     
+ML Implementation        Logistic Regress... 22.776      s0.8133         0.7119         187     
+ML Implementation        k-Nearest Neighbors 0.084       s0.0000         0.0000         203     
+ML Implementation        Decision Tree (ID3) 8.891       s0.8371         0.7659         245     
+ML Implementation        Gaussian Naive B... 0.227       s0.7882         0.6709         134     
