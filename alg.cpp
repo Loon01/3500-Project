@@ -1661,6 +1661,48 @@ struct ResultsManager {
         cout << "Results saved to: " << filename << endl;
     }
     
+    void saveComparisonTableToFile(const string& filename = "ml_results_table.txt") {
+        ofstream file(filename);
+        if (!file.is_open()) {
+            cerr << "Error: Could not create results file: " << filename << endl;
+            return;
+        }
+        
+        // Write the table header
+        file << implementation_name << " Results:" << endl;
+        file << "******************************" << endl;
+        file << left << setw(25) << "Impl" 
+             << setw(20) << "Algorithm" 
+             << setw(12) << "TrainTime" 
+             << setw(15) << "TestMetric1" 
+             << setw(15) << "TestMetric2" 
+             << setw(8) << "SLOC" << endl;
+        
+        // Write each algorithm result
+        for (const auto& result : results) {
+            string metric1_name = (result.algorithm_name.find("Regression") != string::npos && 
+                                  result.algorithm_name.find("Logistic") == string::npos) ? "RMSE" : "Accuracy";
+            string metric2_name = (result.algorithm_name.find("Regression") != string::npos && 
+                                  result.algorithm_name.find("Logistic") == string::npos) ? "R²" : "Macro-F1";
+            
+            // Format the algorithm name (truncate if too long)
+            string algo_display = result.algorithm_name;
+            if (algo_display.length() > 19) {
+                algo_display = algo_display.substr(0, 16) + "...";
+            }
+            
+            file << left << setw(25) << implementation_name 
+                 << setw(20) << algo_display
+                 << setw(12) << fixed << setprecision(3) << result.train_time << "s"
+                 << setw(15) << fixed << setprecision(4) << result.metric1
+                 << setw(15) << fixed << setprecision(4) << result.metric2
+                 << setw(8) << result.sloc << endl;
+        }
+        
+        file.close();
+        cout << "Results table saved to: " << filename << endl;
+    }
+
     void printComparisonTable() {
         cout << "\n" << implementation_name << " Results:" << endl;
         cout << "******************************" << endl;
@@ -1677,6 +1719,10 @@ struct ResultsManager {
             string metric2_name = (result.algorithm_name.find("Regression") != string::npos && 
                                   result.algorithm_name.find("Logistic") == string::npos) ? "R²" : "Macro-F1";
             
+            string algo_display = result.algorithm_name;
+            if (algo_display.length() > 19) {
+                algo_display = algo_display.substr(0, 16) + "...";
+            }                      
             cout << left << setw(25) << implementation_name 
                  << setw(20) << result.algorithm_name.substr(0, 19)
                  << setw(12) << fixed << setprecision(3) << result.train_time << "s"
@@ -1755,7 +1801,7 @@ public:
                     break;
                 case 7:
                     results_manager.printComparisonTable();
-                    break;
+                    results_manager.saveComparisonTableToFile("cpp_results_table.txt");
                 case 8:
                     cout << "Exiting program. Goodbye!" << endl;
                     return;
