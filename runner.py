@@ -190,7 +190,7 @@ def main():
             if compile_result.returncode == 0:
                 # Run
                 subprocess.run(["./alg_executable"])
-           else:
+            else:
                 print("Compilation failed:")
                 print(compile_result.stderr)
             
@@ -213,19 +213,13 @@ def main():
                 raise RuntimeError("No Java files2 found — check your path!")
 
             subprocess.run(
-                ["javac", "-encoding", "UTF-8", "-d", "bin"] + java_files1, 
-                capture_output=True,
-                text=True,
-                )
-
-            subprocess.run(
-                ["javac", "-encoding", "UTF-8", "-d", "bin"] + java_files2, 
+                ["javac", "-encoding", "UTF-8", "-d", "src/bin"] + java_files1 + java_files2, 
                 capture_output=True,
                 text=True,
                 )
 
             result = subprocess.run(
-                ["java", "-cp", "bin", "Main"],
+                ["java", "-cp", "src/bin", "Main"],
                 stdin=None,     # allow keyboard input
                 stdout=None,    # show Java output directly in terminal
                 stderr=None 
