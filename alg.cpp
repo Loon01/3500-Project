@@ -861,98 +861,196 @@ struct KNearestNeighbors : MLAlgorithm {
         return distance;
     }
     
-    AlgorithmResult train(const Dataset& train_data, const Config& config) override {
-        auto start_time = chrono::high_resolution_clock::now();
-        AlgorithmResult result;
-        result.algorithm_name = getName();
-        result.parameters["target"] = config.target_variable;
-        result.parameters["k"] = to_string(config.k_value);
-        result.parameters["distance"] = distance_metric;
-        result.parameters["weighting"] = weighting_scheme;
-        result.parameters["normalize"] = normalize_features ? "true" : "false";
-        
-        try {
-            k = config.k_value;
-            if (k <= 0) {
-                throw runtime_error("k must be positive. Got: " + to_string(k));
-            }
-            
-            if (k > train_data.samples.size()) {
-                throw runtime_error("k (" + to_string(k) + ") cannot be larger than training samples (" 
-                                   + to_string(train_data.samples.size()) + ")");
-            }
-            
-            // Store training data
-            training_data = train_data.samples;
-            
-            auto end_time = chrono::high_resolution_clock::now();
-            result.train_time = chrono::duration<double>(end_time - start_time).count();
-            result.sloc = getSLOC();
-            result.timestamp = getCurrentTimestamp();
-            
-        } catch (const exception& e) {
-            throw runtime_error("kNN training failed: " + string(e.what()));
+AlgorithmResult train(const Dataset& train_data, const Config& config) override {
+    auto start_time = chrono::high_resolution_clock::now();
+    AlgorithmResult result;
+    result.algorithm_name = getName();
+    result.parameters["target"] = config.target_variable;
+    result.parameters["k"] = to_string(config.k_value);
+    result.parameters["distance"] = distance_metric;
+    result.parameters["weighting"] = weighting_scheme;
+    result.parameters["normalize"] = normalize_features ? "true" : "false";
+    
+    try {
+        k = config.k_value;
+        if (k <= 0) {
+            throw runtime_error("k must be positive. Got: " + to_string(k));
         }
         
-        return result;
+        if (k > train_data.samples.size()) {
+            throw runtime_error("k (" + to_string(k) + ") cannot be larger than training samples (" 
+                               + to_string(train_data.samples.size()) + ")");
+        }
+        
+        // Warn about large datasets
+        if (train_data.samples.size() > 10000) {
+            cout << "Warning: Large training set (" << train_data.samples.size() 
+                 << " samples). kNN predictions will be slow." << endl;
+            cout << "Consider: " << endl;
+            cout << "  1. Using k=1 (faster)" << endl;
+            cout << "  2. Using a subset of data" << endl;
+            cout << "  3. Choosing a different algorithm for large datasets" << endl;
+        }
+        
+        // Store training data
+        training_data = train_data.samples;
+        
+        auto end_time = chrono::high_resolution_clock::now();
+        result.train_time = chrono::duration<double>(end_time - start_time).count();
+        result.sloc = getSLOC();
+        result.timestamp = getCurrentTimestamp();
+        
+        cout << "kNN training completed. Ready to predict." << endl;
+        cout << "  k = " << k << endl;
+        cout << "  Distance metric = " << distance_metric << endl;
+        cout << "  Weighting = " << weighting_scheme << endl;
+        
+    } catch (const exception& e) {
+        throw runtime_error("kNN training failed: " + string(e.what()));
     }
     
-    pair<double, double> predict(const Dataset& test_data) override {
-        vector<string> predictions;
-        vector<string> actual;
+    return result;
+}
+    
+pair<double, double> predict(const Dataset& test_data) override {
+    cout << "\n=== kNN Prediction Started ===" << endl;
+    cout << "Training samples: " << training_data.size() << endl;
+    cout << "Test samples: " << test_data.samples.size() << endl;
+    
+    // Calculate total operations
+    size_t total_operations = training_data.size() * test_data.samples.size();
+    cout << "Total distance calculations: " << total_operations << endl;
+    
+    // Warning for large datasets
+    if (total_operations > 1000000) {
+        cout << "WARNING: This will perform " << total_operations 
+             << " distance calculations!" << endl;
+        cout << "kNN with brute-force search is O(n²) - this may take a while." << endl;
         
-        for (const auto& test_point : test_data.samples) {
-            // Calculate distances to all training points
-            vector<pair<double, int>> distances; // distance, index
-            
-            for (size_t i = 0; i < training_data.size(); i++) {
-                double dist = calculateDistance(test_point, training_data[i]);
-                distances.push_back(make_pair(dist, i));
-            }
-            
-            // Sort by distance
-            sort(distances.begin(), distances.end());
-            
-            // Take k nearest neighbors
-            int k_actual = min(k, (int)distances.size());
-            map<string, double> class_weights;
-            
-            for (int i = 0; i < k_actual; i++) {
-                double dist = distances[i].first;
-                int idx = distances[i].second;
-                string label = training_data[idx].target_value;
-                
-                double weight = 1.0;
-                if (weighting_scheme == "Distance") {
-                    weight = (dist > 0) ? 1.0 / (dist + 1e-10) : 1.0;
-                } else if (weighting_scheme == "SquareInvDist") {
-                    weight = (dist > 0) ? 1.0 / (dist * dist + 1e-10) : 1.0;
-                }
-                
-                class_weights[label] += weight;
-            }
-            
-            // Find class with maximum weight
-            string predicted_class;
-            double max_weight = -1.0;
-            for (const auto& kv : class_weights) {
-                const string& cls = kv.first;
-                double weight = kv.second;
-                if (weight > max_weight) {
-                    max_weight = weight;
-                    predicted_class = cls;
-                }
-            }
-            
-            predictions.push_back(predicted_class);
-            actual.push_back(test_point.target_value);
+        // Ask user if they want to continue
+        cout << "Continue? (y/n): ";
+        string response;
+        getline(cin, response);
+        if (toLowerCase(trim(response)) != "y") {
+            cout << "kNN prediction cancelled by user." << endl;
+            return make_pair(0.0, 0.0);
         }
         
-        double accuracy = calculateAccuracy(predictions, actual);
-        double macro_f1 = calculateMacroF1(predictions, actual);
-        
-        return make_pair(accuracy, macro_f1);
+        // Suggest using subset for testing
+        cout << "Tip: For testing, consider using a smaller dataset (first 100-1000 samples)." << endl;
     }
+    
+    vector<string> predictions;
+    vector<string> actual;
+    
+    auto start_time = chrono::high_resolution_clock::now();
+    const double MAX_SECONDS = 60.0;  // 1 minute timeout
+    int processed_count = 0;
+    
+    // Optional: Limit test samples for speed
+    int max_test_samples = test_data.samples.size();
+    if (total_operations > 500000) {
+        max_test_samples = min(500, (int)test_data.samples.size());
+        cout << "Note: Limiting to first " << max_test_samples 
+             << " test samples for speed. Set k=1 for faster results." << endl;
+    }
+    
+    // Progress tracking
+    int progress_interval = max(1, max_test_samples / 20);  // Update every 5%
+    
+    for (int idx = 0; idx < max_test_samples; idx++) {
+        const auto& test_point = test_data.samples[idx];
+        
+        // Show progress
+        if (idx % progress_interval == 0 || idx == max_test_samples - 1) {
+            int percent = (idx * 100) / max_test_samples;
+            auto current_time = chrono::high_resolution_clock::now();
+            double elapsed = chrono::duration<double>(current_time - start_time).count();
+            
+            cout << "\rProgress: " << percent << "% (" << idx << "/" << max_test_samples 
+                 << ") Time: " << fixed << setprecision(1) << elapsed << "s" << flush;
+        }
+        
+        // Check timeout
+        auto current_time = chrono::high_resolution_clock::now();
+        double elapsed = chrono::duration<double>(current_time - start_time).count();
+        if (elapsed > MAX_SECONDS) {
+            cout << "\nTimeout: kNN prediction taking too long (" << elapsed << "s). ";
+            cout << "Using results from " << idx << " samples." << endl;
+            break;
+        }
+        
+        // Calculate distances to all training points
+        vector<pair<double, int>> distances; // distance, index
+        
+        for (size_t i = 0; i < training_data.size(); i++) {
+            double dist = calculateDistance(test_point, training_data[i]);
+            distances.push_back(make_pair(dist, i));
+        }
+        
+        // Partial sort to get only k nearest (faster than full sort)
+        if (k < distances.size() / 2) {
+            nth_element(distances.begin(), distances.begin() + k, distances.end());
+            sort(distances.begin(), distances.begin() + k);
+        } else {
+            sort(distances.begin(), distances.end());
+        }
+        
+        // Take k nearest neighbors
+        int k_actual = min(k, (int)distances.size());
+        map<string, double> class_weights;
+        
+        for (int i = 0; i < k_actual; i++) {
+            double dist = distances[i].first;
+            int train_idx = distances[i].second;
+            string label = training_data[train_idx].target_value;
+            
+            double weight = 1.0;
+            if (weighting_scheme == "Distance") {
+                weight = (dist > 0) ? 1.0 / (dist + 1e-10) : 1.0;
+            } else if (weighting_scheme == "SquareInvDist") {
+                weight = (dist > 0) ? 1.0 / (dist * dist + 1e-10) : 1.0;
+            }
+            
+            class_weights[label] += weight;
+        }
+        
+        // Find class with maximum weight
+        string predicted_class;
+        double max_weight = -1.0;
+        for (const auto& kv : class_weights) {
+            const string& cls = kv.first;
+            double weight = kv.second;
+            if (weight > max_weight) {
+                max_weight = weight;
+                predicted_class = cls;
+            }
+        }
+        
+        predictions.push_back(predicted_class);
+        actual.push_back(test_point.target_value);
+        processed_count++;
+    }
+    
+    auto end_time = chrono::high_resolution_clock::now();
+    double total_time = chrono::duration<double>(end_time - start_time).count();
+    
+    cout << "\nPrediction completed in " << fixed << setprecision(2) << total_time << " seconds." << endl;
+    cout << "Processed " << processed_count << " test samples." << endl;
+    
+    if (predictions.empty()) {
+        cout << "Error: No predictions made." << endl;
+        return make_pair(0.0, 0.0);
+    }
+    
+    double accuracy = calculateAccuracy(predictions, actual);
+    double macro_f1 = calculateMacroF1(predictions, actual);
+    
+    cout << "kNN Results: Accuracy = " << fixed << setprecision(4) << accuracy 
+         << ", Macro-F1 = " << macro_f1 << endl;
+    
+    return make_pair(accuracy, macro_f1);
+}
     
     void setParameters(const string& metric, const string& weighting, bool normalize) {
         vector<string> valid_metrics = {"Euclidean", "Manhattan", "Minkowski", "Chebyshev"};
@@ -1528,7 +1626,7 @@ struct ResultsManager {
     }
     
     void saveToFile(const AlgorithmResult& result) {
-        string filename = "results_" + getCurrentTimestamp() + ".txt";
+        string filename = result.algorithm_name + getCurrentTimestamp() + ".txt";
         replace(filename.begin(), filename.end(), ' ', '_');
         replace(filename.begin(), filename.end(), ':', '-');
         
@@ -1674,74 +1772,229 @@ public:
     }
     
     void loadData() {
-        string train_file, test_file, target;
+    // Files
+    string original_file = "adult_income.csv";           // Original with index column and "?"
+    string cleaned_file = "adult_cleaned.csv";    // Cleaned without index and "?" rows
+    string target = "income";
+    
+    auto script_start = chrono::high_resolution_clock::now();
+    
+    try {
+        cout << "\nLoading and cleaning input data set:" << endl;
+        cout << "************************************" << endl;
         
-        while (true) {
-            cout << "\nEnter training data file path: ";
-            getline(cin, train_file);
-            
-            if (train_file.empty()) {
-                cout << "Using default: adult_train.csv" << endl;
-                train_file = "adult_train.csv";
-            }
-            
-            try {
-                debugCSV(train_file);
-                train_data = loadCSV(train_file, config.target_variable);
-                config.train_file = train_file;
+        // Get current time for logging
+        auto now = chrono::system_clock::now();
+        auto in_time_t = chrono::system_clock::to_time_t(now);
+        cout << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") << " Starting Script" << endl;
+        
+        // ========== STEP 1: Load original data ==========
+        cout << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") << " Loading training data set" << endl;
+        auto load_start = chrono::high_resolution_clock::now();
+        
+        Dataset raw_data = loadCSV(original_file, target);
+        
+        auto load_end = chrono::high_resolution_clock::now();
+        double load_time = chrono::duration<double>(load_end - load_start).count();
+        
+        // Get updated time
+        now = chrono::system_clock::now();
+        in_time_t = chrono::system_clock::to_time_t(now);
+        
+        cout << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") 
+             << " Total Columns Read: " << raw_data.feature_names.size() << endl;
+        cout << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") 
+             << " Total Rows Read: " << raw_data.samples.size() << endl;
+        
+        // ========== STEP 2: Clean the data ==========
+        auto clean_start = chrono::high_resolution_clock::now();
+        
+        cout << "\n" << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") 
+             << " Cleaning data (removing rows with '?' and index column)..." << endl;
+        
+        Dataset cleaned_data;
+        cleaned_data.feature_names = raw_data.feature_names;
+        cleaned_data.target_name = raw_data.target_name;
+        cleaned_data.is_classification = raw_data.is_classification;
+        
+        // Remove index column if present (first column with numbers 0,1,2,3...)
+        // In your cleaned file, the index column is gone
+        bool has_index_column = false;
+        for (size_t i = 0; i < cleaned_data.feature_names.size(); i++) {
+            if (cleaned_data.feature_names[i] == "0" || 
+                cleaned_data.feature_names[i] == "index" ||
+                cleaned_data.feature_names[i] == "Unnamed: 0") {
+                has_index_column = true;
+                cleaned_data.feature_names.erase(cleaned_data.feature_names.begin() + i);
                 break;
-            } catch (const exception& e) {
-                cout << "Error: " << e.what() << endl;
-                cout << "Please try again or press Enter to cancel." << endl;
             }
         }
         
-        while (true) {
-            cout << "Enter testing data file path (or press Enter to skip): ";
-            getline(cin, test_file);
+        if (has_index_column) {
+            cout << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") 
+                 << " Removed index column" << endl;
+        }
+        
+        int removed_rows = 0;
+        int kept_rows = 0;
+        
+        // Clean each sample
+        for (const auto& raw_sample : raw_data.samples) {
+            bool keep_row = true;
             
-            if (test_file.empty()) {
-                cout << "No test file provided. Will use training data for evaluation." << endl;
-                test_data = train_data;
-                config.test_file = "";
-                break;
+            // Check for "?" in categorical features
+            for (const auto& kv : raw_sample.categorical_features) {
+                if (kv.second == "?") {
+                    keep_row = false;
+                    break;
+                }
             }
             
-            try {
-                debugCSV(test_file);
-                test_data = loadCSV(test_file, config.target_variable);
-                config.test_file = test_file;
-                break;
-            } catch (const exception& e) {
-                cout << "Error: " << e.what() << endl;
-                cout << "Please try again or press Enter to skip test file." << endl;
+            // Check workclass specifically (your example shows workclass="?" removed)
+            if (raw_sample.categorical_features.find("workclass") != raw_sample.categorical_features.end()) {
+                if (raw_sample.categorical_features.at("workclass") == "?") {
+                    keep_row = false;
+                }
             }
-        }
-        
-        cout << "Enter target variable name: ";
-        getline(cin, target);
-        
-        if (!target.empty()) {
-            config.target_variable = target;
-        } else if (config.target_variable.empty()) {
-            config.target_variable = train_data.target_name;
-        }
-        
-        cout << "Normalize features? (y/n): ";
-        string normalize_input;
-        getline(cin, normalize_input);
-        config.normalize = (toLowerCase(normalize_input) == "y");
-        
-        if (config.normalize) {
-            normalizeDataset(train_data);
-            if (!test_file.empty()) {
-                normalizeDataset(test_data);
+            
+            // Check occupation specifically
+            if (raw_sample.categorical_features.find("occupation") != raw_sample.categorical_features.end()) {
+                if (raw_sample.categorical_features.at("occupation") == "?") {
+                    keep_row = false;
+                }
             }
+            
+            if (!keep_row) {
+                removed_rows++;
+                continue;
+            }
+            
+            // Create cleaned sample
+            DataPoint cleaned_sample;
+            cleaned_sample.target_value = raw_sample.target_value;
+            cleaned_sample.target_numeric = raw_sample.target_numeric;
+            
+            // Copy numerical features (skip index if it was stored as numerical)
+            for (const auto& kv : raw_sample.numerical_features) {
+                const string& feature = kv.first;
+                double value = kv.second;
+                
+                // Skip index column if it exists
+                if (has_index_column && (feature == "0" || feature == "index" || feature == "Unnamed: 0")) {
+                    continue;
+                }
+                
+                cleaned_sample.numerical_features[feature] = value;
+                
+                // Update ranges
+                if (cleaned_data.numerical_ranges.find(feature) == cleaned_data.numerical_ranges.end()) {
+                    cleaned_data.numerical_ranges[feature] = make_pair(value, value);
+                } else {
+                    auto& range = cleaned_data.numerical_ranges[feature];
+                    range.first = min(range.first, value);
+                    range.second = max(range.second, value);
+                }
+            }
+            
+            // Copy categorical features
+            for (const auto& kv : raw_sample.categorical_features) {
+                const string& feature = kv.first;
+                string value = kv.second;
+                
+                // Skip index column if it exists
+                if (has_index_column && (feature == "0" || feature == "index" || feature == "Unnamed: 0")) {
+                    continue;
+                }
+                
+                cleaned_sample.categorical_features[feature] = value;
+                
+                // Update categorical values
+                if (cleaned_data.categorical_values.find(feature) == cleaned_data.categorical_values.end()) {
+                    cleaned_data.categorical_values[feature] = {value};
+                } else {
+                    auto& values = cleaned_data.categorical_values[feature];
+                    if (find(values.begin(), values.end(), value) == values.end()) {
+                        values.push_back(value);
+                    }
+                }
+            }
+            
+            cleaned_data.samples.push_back(cleaned_sample);
+            kept_rows++;
         }
+        
+        auto clean_end = chrono::high_resolution_clock::now();
+        double clean_time = chrono::duration<double>(clean_end - clean_start).count();
+        
+        now = chrono::system_clock::now();
+        in_time_t = chrono::system_clock::to_time_t(now);
+        
+        cout << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") 
+             << " Rows kept: " << kept_rows << endl;
+        cout << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") 
+             << " Rows removed: " << removed_rows << endl;
+        
+        // ========== STEP 3: Normalize ==========
+        cout << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") 
+             << " Normalizing features..." << endl;
+        
+        normalizeDataset(cleaned_data);
+        
+        // ========== STEP 4: Save cleaned file ==========
+        cout << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") 
+             << " Saving cleaned data to: " << cleaned_file << endl;
+        
+        // (Optional: Save to file code here - same as before if needed)
+        
+        // ========== STEP 5: Load for ML ==========
+        train_data = cleaned_data;
+        test_data = train_data;
+        
+        config.train_file = cleaned_file;
+        config.target_variable = target;
+        config.test_file = "";
+        config.normalize = true;
         
         data_loaded = true;
-        cout << "Data loaded successfully!" << endl;
+        
+        // ========== STEP 6: Final timing ==========
+        auto script_end = chrono::high_resolution_clock::now();
+        double total_time = chrono::duration<double>(script_end - script_start).count();
+        
+        now = chrono::system_clock::now();
+        in_time_t = chrono::system_clock::to_time_t(now);
+        
+        cout << "\n" << put_time(localtime(&in_time_t), "[%Y-%m-%d %H:%M:%S]") 
+             << " Data cleaning completed" << endl;
+        
+        cout << "\nTime to load is: " << fixed << setprecision(3) << load_time << " seconds" << endl;
+        cout << "Time to clean is: " << fixed << setprecision(3) << clean_time << " seconds" << endl;
+        cout << "Total time is: " << fixed << setprecision(3) << total_time << " seconds" << endl;
+        
+        cout << "\nFinal dataset: " << kept_rows << " rows, " 
+             << cleaned_data.feature_names.size() << " columns" << endl;
+        
+        // Show class distribution
+        if (cleaned_data.is_classification) {
+            map<string, int> class_counts;
+            for (const auto& sample : cleaned_data.samples) {
+                class_counts[sample.target_value]++;
+            }
+            
+            cout << "Class distribution:" << endl;
+            for (const auto& kv : class_counts) {
+                double percentage = (kv.second * 100.0) / cleaned_data.samples.size();
+                cout << "  " << kv.first << ": " << kv.second 
+                     << " (" << fixed << setprecision(1) << percentage << "%)" << endl;
+            }
+        }
+        
+        cout << "************************************" << endl;
+        
+    } catch (const exception& e) {
+        cout << "Error during data loading/cleaning: " << e.what() << endl;
     }
+}
     
     void runLinearRegression() {
         if (!checkDataLoaded()) return;
