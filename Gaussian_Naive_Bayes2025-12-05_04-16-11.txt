@@ -1,0 +1,8 @@
+Algorithm: Gaussian Naive Bayes
+Timestamp: 2025-12-05 04:16:10
+Train time: 0.227042s
+Accuracy: 0.788169
+Macro-F1: 0.670914
+SLOC: 134
+Parameters:
+  target: income
