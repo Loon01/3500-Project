@@ -33,7 +33,17 @@ def main():
         choice = input("Enter choice: ").strip()
         
         if choice == "1": 
-            print("No C++ file yet")
+            print("Compiling and running C++ implementation...")
+    
+            # Compile
+            compile_result = subprocess.run(["g++", "-std=c++11", "alg.cpp", "-o", "alg_executable"], capture_output=True, text=True)
+    
+            if compile_result.returncode == 0:
+                # Run
+                subprocess.run(["./alg_executable"])
+           else:
+                print("Compilation failed:")
+                print(compile_result.stderr)
             
         if choice == "2": 
             # Make sure build directory exists
