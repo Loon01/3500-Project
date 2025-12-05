@@ -1,4 +1,5 @@
 import data.*;
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import models.*;
@@ -19,6 +20,9 @@ public class Main {
     
     // Loaded data
     private static Dataset dataset = null;
+    
+    // Available dataset files
+    private static List<String> availableDatasets = new ArrayList<>();
     private static double[][] XTrain = null;
     private static double[][] XTest = null;
     private static double[] yTrain = null;
@@ -94,13 +98,36 @@ public class Main {
     private static void loadData() {
         System.out.println("\n*** Loading Data ***");
         
-        // Using adult income dataset
+        // Scan current directory for CSV files
+        scanForDatasets();
+        
+        if (availableDatasets.isEmpty()) {
+            System.out.println("No CSV files found in current directory.");
+            return;
+        }
+        
+        // Display available datasets
         System.out.println("Pick a dataset:");
-        System.out.println("  1. adult_income_cleaned.csv");
+        for (int i = 0; i < availableDatasets.size(); i++) {
+            System.out.println("  " + (i + 1) + ". " + availableDatasets.get(i));
+        }
         System.out.print("Enter option: ");
         
         String option = scanner.nextLine().trim();
-        String filePath = "adult_income_cleaned.csv";
+        int choice;
+        
+        try {
+            choice = Integer.parseInt(option);
+            if (choice < 1 || choice > availableDatasets.size()) {
+                System.out.println("Invalid option. Please try again.");
+                return;
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid input. Please enter a number.");
+            return;
+        }
+        
+        String filePath = availableDatasets.get(choice - 1);
         
         try {
             long startTime = System.currentTimeMillis();
@@ -519,6 +546,26 @@ public class Main {
         } catch (Exception e) {
             return 0; 
         }
+    }
+    
+    /**
+     * Scan current directory for CSV files
+     */
+    private static void scanForDatasets() {
+        availableDatasets.clear();
+        File currentDir = new File(".");
+        File[] files = currentDir.listFiles();
+        
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile() && file.getName().toLowerCase().endsWith(".csv")) {
+                    availableDatasets.add(file.getName());
+                }
+            }
+        }
+        
+        // Sort alphabetically for consistent ordering
+        Collections.sort(availableDatasets);
     }
     
     /**
