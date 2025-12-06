@@ -194,7 +194,7 @@ def main():
                 print("Compilation failed:")
                 print(compile_result.stderr)
             
-        if choice == "2": 
+        elif choice == "2": 
             # Make sure build directory exists
             os.makedirs("src/bin", exist_ok=True)
 
@@ -225,7 +225,7 @@ def main():
                 stderr=None 
                 )
 
-        if choice == "3": 
+        elif choice == "3": 
             # Invoking the Lisp interpreter
             result = subprocess.run(
                 ["sbcl", "--load", "functional.lisp"],
@@ -234,7 +234,10 @@ def main():
                 stderr=None
                 )
 
-        if choice == "4": 
+        elif choice == "4": 
+            #subprocess.run(
+            #    ["cat", "cpp_results_table.txt"]
+            #)
             print("No General results yet")
         
         elif choice == "5":
