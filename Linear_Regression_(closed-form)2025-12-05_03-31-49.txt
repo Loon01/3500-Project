@@ -1,8 +1,0 @@
-Algorithm: Linear Regression (closed-form)
-Timestamp: 2025-12-05 03:31:49
-Train time: 0.078024s
-RMSE: 0
-R²: 1
-SLOC: 156
-Parameters:
-  target: hours.per.week
