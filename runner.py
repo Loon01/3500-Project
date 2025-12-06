@@ -185,7 +185,7 @@ def main():
             print("Compiling and running C++ implementation...")
     
             # Compile
-            compile_result = subprocess.run(["g++", "-std=c++11", "alg.cpp", "-o", "alg_executable"], capture_output=True, text=True)
+            compile_result = subprocess.run(["g++", "-std=c++14", "alg2.cpp", "-o", "alg_executable"], capture_output=True, text=True)
     
             if compile_result.returncode == 0:
                 # Run
